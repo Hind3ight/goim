@@ -81,5 +81,16 @@ func (l *Logic) RenewOnline(c context.Context, server string, roomCount map[stri
 // Receive receive a message.
 func (l *Logic) Receive(c context.Context, mid int64, proto *protocol.Proto) (err error) {
 	log.Infof("receive mid:%d message:%+v", mid, proto)
+	type PBody struct {
+		RoomId int32  `json:"roomId"`
+		Body   []byte `json:"body"`
+	}
+	var body PBody
+	err = json.Unmarshal(proto.Body, &body)
+	if err != nil {
+		return err
+	}
+
+	l.dao.BroadcastMsg(c, body.RoomId, 0, body.Body)
 	return
 }

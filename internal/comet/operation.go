@@ -2,12 +2,15 @@ package comet
 
 import (
 	"context"
+	"encoding/json"
+	"strconv"
 	"time"
 
 	"github.com/Terry-Mao/goim/api/logic"
 	"github.com/Terry-Mao/goim/api/protocol"
 	"github.com/Terry-Mao/goim/pkg/strings"
 	log "github.com/golang/glog"
+	strings2 "strings"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/encoding/gzip"
@@ -82,6 +85,29 @@ func (s *Server) Operate(ctx context.Context, p *protocol.Proto, ch *Channel, b 
 			ch.UnWatch(ops...)
 		}
 		p.Op = protocol.OpUnsubReply
+	case protocol.OpSendMsg:
+
+		roomSlice := strings2.Split(ch.Room.ID, "//")
+		if len(roomSlice) < 2 {
+			return nil
+		}
+		roomIdStr := roomSlice[1]
+		roomID, _ := strconv.Atoi(roomIdStr)
+		type PBody struct {
+			RoomId int32  `json:"roomId"`
+			Body   []byte `json:"body"`
+		}
+		pBody := PBody{
+			RoomId: int32(roomID),
+			Body:   p.Body,
+		}
+		p.Body, _ = json.Marshal(pBody)
+		if err := s.Receive(ctx, ch.Mid, p); err != nil {
+			log.Errorf("s.Report(%d) op:%d error(%v)", ch.Mid, p.Op, err)
+		}
+
+		p.Body = nil
+		p.Op = protocol.OpSendMsgReply
 	default:
 		// TODO ack ok&failed
 		if err := s.Receive(ctx, ch.Mid, p); err != nil {
